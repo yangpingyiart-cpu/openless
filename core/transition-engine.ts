@@ -118,6 +118,66 @@ export class TransitionEngine {
     return true;
   }
 
+  /**
+   * Authoritative snapshot from a peer (full-sync). Structural validation only;
+   * transition rules do not apply (peer state wins).
+   */
+  applyFullSync(remoteState: GlobalState): boolean {
+    const previousState = this.store.getState();
+    const validationError = this.validateGlobalState(remoteState);
+    if (validationError) {
+      const diff: StateDiff = {
+        mutation: {},
+        timestamp: Date.now(),
+      };
+      this.emitError(previousState, diff, validationError);
+      return false;
+    }
+
+    const state = this.store.resetState({
+      version: remoteState.version,
+      status: remoteState.status,
+      data: remoteState.data,
+    });
+
+    const diff: StateDiff = {
+      mutation: {
+        version: remoteState.version,
+        status: remoteState.status,
+        data: remoteState.data,
+      },
+      timestamp: Date.now(),
+    };
+
+    this.bus.emit<StateUpdatePayload>(EVENT_STATE_UPDATE, {
+      state,
+      diff,
+      previousState,
+    });
+
+    return true;
+  }
+
+  private validateGlobalState(state: GlobalState): string | null {
+    if (!state || typeof state !== "object") {
+      return "Full-sync state must be an object";
+    }
+
+    if (typeof state.version !== "number" || !Number.isFinite(state.version)) {
+      return "Full-sync version must be a finite number";
+    }
+
+    if (!VALID_STATUSES.has(state.status)) {
+      return `Invalid full-sync status: ${String(state.status)}`;
+    }
+
+    if (state.data === undefined || typeof state.data !== "object") {
+      return "Full-sync data must be an object";
+    }
+
+    return null;
+  }
+
   private validateDiff(diff: StateDiff): string | null {
     if (!diff || typeof diff !== "object") {
       return "Diff must be an object";

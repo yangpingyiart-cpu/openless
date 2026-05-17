@@ -1,5 +1,4 @@
 import {
-  DeltaSyncer,
   DiffBroadcastPayload,
   DiffReceivedPayload,
   EVENT_DIFF_BROADCAST,
@@ -10,37 +9,35 @@ import {
   SyncCompletePayload,
   SyncRequestPayload,
 } from "../core/delta-syncer";
-import { EventBus } from "../core/event-bus";
+import { OpenLessNode } from "../core/openless-node";
 import { StateStore } from "../core/state-store";
 
-function createNode(id: string) {
-  const bus = new EventBus();
-  const store = new StateStore();
-  const syncer = new DeltaSyncer(id, store, bus);
+function createNode(id: string): OpenLessNode {
+  const node = new OpenLessNode({ nodeId: id });
 
-  bus.subscribe<DiffBroadcastPayload>(EVENT_DIFF_BROADCAST, (p) => {
+  node.bus.subscribe<DiffBroadcastPayload>(EVENT_DIFF_BROADCAST, (p) => {
     console.log(`[${p.nodeId}] diff:broadcast -> v${p.versioned.version} peers=${p.peerIds.join(",")}`);
   });
 
-  bus.subscribe<DiffReceivedPayload>(EVENT_DIFF_RECEIVED, (p) => {
+  node.bus.subscribe<DiffReceivedPayload>(EVENT_DIFF_RECEIVED, (p) => {
     console.log(
       `[${p.nodeId}] diff:received <- ${p.fromPeerId} v${p.versioned.version}`,
     );
   });
 
-  bus.subscribe<SyncRequestPayload>(EVENT_SYNC_REQUEST, (p) => {
+  node.bus.subscribe<SyncRequestPayload>(EVENT_SYNC_REQUEST, (p) => {
     console.log(
       `[${p.nodeId}] sync:request (local v${p.localVersion}, incoming v${p.incomingVersion}, peer ${p.fromPeerId})`,
     );
   });
 
-  bus.subscribe<SyncCompletePayload>(EVENT_SYNC_COMPLETE, (p) => {
+  node.bus.subscribe<SyncCompletePayload>(EVENT_SYNC_COMPLETE, (p) => {
     console.log(
       `[${p.nodeId}] sync:complete <- ${p.fromPeerId} v${p.state.version} status=${p.state.status}`,
     );
   });
 
-  return { id, bus, store, syncer };
+  return node;
 }
 
 function logState(label: string, store: StateStore): void {
@@ -56,10 +53,10 @@ function main(): void {
   const nodeB = createNode("node-b");
   const nodeC = createNode("node-c");
 
-  hub.mesh([nodeA.syncer, nodeB.syncer, nodeC.syncer]);
+  hub.mesh([nodeA, nodeB, nodeC]);
 
-  console.log("--- Step 1: node-a broadcasts (all peers catch up) ---");
-  nodeA.syncer.broadcastDiff({
+  console.log("--- Step 1: node-a applyLocal (all peers catch up) ---");
+  nodeA.applyLocal({
     mutation: { data: { counter: 1 }, status: "active" },
     timestamp: Date.now(),
   });
@@ -68,8 +65,8 @@ function main(): void {
   logState("node-b", nodeB.store);
   logState("node-c", nodeC.store);
 
-  console.log("\n--- Step 2: node-b broadcasts ---");
-  nodeB.syncer.broadcastDiff({
+  console.log("\n--- Step 2: node-b applyLocal ---");
+  nodeB.applyLocal({
     mutation: { data: { counter: 2 } },
     timestamp: Date.now(),
   });
@@ -82,10 +79,13 @@ function main(): void {
   nodeC.store.resetState({ version: 0, data: {}, status: "active" });
   logState("node-c (reset)", nodeC.store);
 
-  nodeC.syncer.receiveDiff(
+  nodeC.handleInbound(
     {
-      version: 2,
-      diff: { mutation: { data: { counter: 2 } }, timestamp: Date.now() },
+      type: "diff",
+      payload: {
+        version: 2,
+        diff: { mutation: { data: { counter: 2 } }, timestamp: Date.now() },
+      },
     },
     "node-b",
   );

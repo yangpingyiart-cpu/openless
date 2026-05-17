@@ -1,74 +1,72 @@
 # OpenLess
 
-OpenLess ???? TypeScript ???**??????????stateful runtime?**?  
-????????????????????????? **delta ??** ????????????
+OpenLess is an in-memory **stateful runtime** prototype in TypeScript: a single `GlobalState`, optimistic concurrency via monotonic `version`, incremental `StateDiff` mutations, and multi-node delta replication with full-sync recovery.
 
-??????????
-
-- ????????
-- ???????OCC????
-- ??? diff ???????
-
-> ?????????????????????? Redis / WebSocket / NATS / Kafka?
-
----
-
-## 5 ????
-
-```
-????????????????     applyTransition      ????????????????????
-? Transition   ? ???????????????????????? ?   StateStore     ?
-?   Engine     ?                          ?  version++       ?
-????????????????                          ????????????????????
-       ? emit                                        ?
-       ?                                             ? getState / applyDiff
-????????????????                          ?????????????????????
-?   EventBus   ? ??????????????????????????   DeltaSyncer     ?
-????????????????                          ?  publish / receive ?
-                                            ?????????????????????
-                                                      ? SyncPeer
-                                            ?????????????????????
-                                            ?  ?? OpenLess ?? ?
-                                            ?????????????????????
-```
-
-**???????????**
-
-1. ?? `TransitionEngine.applyTransition(diff)` � ?? + ???? `StateStore`
-2. ??? `DeltaSyncer.publishDiff(diff)` � ???????
-3. ?? `receiveDiff` � ? `incoming.version === local.version + 1` ??????????????
+**Phase 1 (frozen):** unified write path through `OpenLessNode`, protocol-only `DeltaSyncer`, runtime invariant tests. No production transport, persistence, or agent layer yet.
 
 ---
 
 ## Runtime Architecture
 
-?? **OpenLess ??** ??????????
+All runtime mutations go through one entry point:
 
-| ?? | ?? | ?? |
-|------|------|------|
-| **EventBus** | `core/event-bus.ts` | ?? Node.js `EventEmitter` ???/?? |
-| **StateStore** | `core/state-store.ts` | ???? `GlobalState`??????? `version` |
-| **TransitionEngine** | `core/transition-engine.ts` | ?? diff???????????? |
-| **DeltaSyncer** | `core/delta-syncer.ts` | ??? diff ????????????? |
+```text
+transport (SyncPeer adapter)
+  ↓
+OpenLessNode.handleInbound() / applyLocal()
+  ↓
+DeltaSyncer          (protocol: sequencing, fan-out, gap / full-sync signaling)
+  ↓
+TransitionEngine   (validate, rules, applyTransition / applyFullSync)
+  ↓
+StateStore
+```
 
-```
-openless/
-??? core/
-?   ??? event-bus.ts
-?   ??? state-store.ts
-?   ??? transition-engine.ts
-?   ??? delta-syncer.ts
-??? demo/
-    ??? relay-demo.ts          # ?????? + recovery ??
-    ??? delta-sync-demo.ts     # ??? delta ??
-    ??? multi-node-demo.ts     # ???????????
-```
+| Layer | Role |
+|-------|------|
+| **OpenLessNode** | **Only** runtime entry: `applyLocal`, `handleInbound` |
+| **DeltaSyncer** | Protocol primitive — does **not** mutate store |
+| **TransitionEngine** | Validation, transition rules, `applyFullSync` |
+| **StateStore** | In-memory `GlobalState` |
+| **EventBus** | In-process events |
+
+- **Local write:** `node.applyLocal(diff)` → `applyTransition` → `publishDiff`
+- **Inbound diff:** sequenced (`incoming.version === local.version + 1`) → `applyTransition`; gap → `sync:request` → peer full-sync → `applyFullSync`
+- **Inbound full-sync:** `applyFullSync` (structural validation; peer snapshot wins) → `sync:complete`
+- **Diff and full-sync** use the same pipeline (no direct `StateStore` writes from sync or transport)
+
+Transport adapters implement `SyncPeer` and deliver `SyncMessage` to `node.handleInbound(message, fromPeerId)` — they must **not** call `TransitionEngine` directly.
 
 ---
 
-## Core Components
+## Public API
 
-### GlobalState
+Import from the package root (`index.ts`):
+
+```ts
+import {
+  OpenLessNode,
+  DeltaSyncer,
+  TransitionEngine,
+  StateStore,
+  InMemorySyncHub,
+} from "openless";
+```
+
+| API | Use |
+|-----|-----|
+| `new OpenLessNode({ nodeId, initialState?, rules? })` | Create a node |
+| `node.applyLocal(diff)` | Local mutation + fan-out |
+| `node.handleInbound(message, fromPeerId)` | Inbound transport entry |
+| `InMemorySyncHub.link(a, b)` / `.mesh(nodes)` | In-process demo/test wiring |
+
+**Not part of the public contract (removed in Phase 1):** `broadcastDiff`, `receiveDiff`, `handleInboundMessage` on `DeltaSyncer`, demo `wireEngineInboundSync`.
+
+Lower-level access: `node.store`, `node.engine`, `node.syncer`, `node.bus` for demos and tests.
+
+---
+
+## Core types
 
 ```ts
 interface GlobalState {
@@ -76,197 +74,104 @@ interface GlobalState {
   data: Record<string, any>;
   status: "active" | "recovering" | "error";
 }
-```
 
-### StateDiff
-
-```ts
 interface StateDiff {
   mutation: Partial<GlobalState>;
   timestamp: number;
 }
 ```
 
-### EventBus
-
-```ts
-bus.emit(event, payload);
-bus.subscribe(event, handler);
-bus.unsubscribe(event, handler);
-```
-
-### StateStore
-
-| API | ?? |
-|-----|------|
-| `getState()` | ????????? |
-| `applyDiff(diff)` | ?? mutation?`version` ?? `+1` |
-| `resetState(overrides?)` | ?????????? |
-
-### TransitionEngine
-
-| API | ?? |
-|-----|------|
-| `applyTransition(diff)` | ?? ? `applyDiff` ? `emit('state:update')` |
-| `addRule(rule)` | ????????? |
-
-?? **recovery ??**?? `status === 'recovering'` ????? `recovery*` ???? `status ? active | error`?
-
-### DeltaSyncer
-
-| API | ?? |
-|-----|------|
-| `connectPeer(peer)` | ???? `SyncPeer`?????? |
-| `broadcastDiff(diff)` | ??????? |
-| `publishDiff(diff)` | ???????? Engine ?????? |
-| `receiveDiff(versioned, fromPeerId)` | ????????? |
-| `handleInboundMessage(msg, fromPeerId)` | ??????? |
-
-?????? `InMemorySyncHub.mesh([...])` ?????????
+`SyncMessage`: `diff` | `full-sync-request` | `full-sync` — see `ARCHITECTURE.md`.
 
 ---
 
-## Event Flow
+## Events
 
-### ??????
-
-| ?? | ???? |
-|------|----------|
-| `state:update` | `applyTransition` ?? |
-| `error:transition` | ????????? |
-
-### ????
-
-| ?? | ???? |
-|------|----------|
-| `diff:broadcast` | ????? diff |
-| `diff:received` | ???? diff???????? |
-| `sync:request` | ???????????? |
-| `sync:complete` | ????????? |
-
-```mermaid
-sequenceDiagram
-  participant A as NODE_A
-  participant B as NODE_B
-  participant C as NODE_C
-
-  A->>A: applyTransition(diff)
-  A->>A: emit state:update
-  A->>B: publishDiff (SyncPeer)
-  A->>C: publishDiff (SyncPeer)
-  B->>B: receiveDiff (version match)
-  C->>C: receiveDiff (version match)
-  B->>B: emit diff:received
-  C->>C: emit diff:received
-```
-
-??????
-
-```mermaid
-sequenceDiagram
-  participant C as NODE_C (v0)
-  participant B as NODE_B (v1)
-
-  B->>C: VersionedDiff v2
-  C->>C: emit sync:request
-  C->>B: full-sync-request
-  B->>C: full-sync (GlobalState)
-  C->>C: resetState + emit sync:complete
-```
+| Event | When |
+|-------|------|
+| `state:update` | Successful `applyTransition` or `applyFullSync` |
+| `error:transition` | Validation or rule failure |
+| `diff:broadcast` | After `publishDiff` |
+| `diff:received` | Inbound diff handled (`applied: boolean`) |
+| `sync:request` | Version gap |
+| `sync:complete` | Full-sync applied |
 
 ---
 
-## Delta Synchronization
+## Tests
 
-**???????**
+Runtime invariants are locked by `npm test` (`node:test` + `ts-node`):
 
-```
-incoming.version === local.version + 1  ?  applyDiff
-??                                   ?  requestFullSync()
-```
-
-**VersionedDiff** ??????????????? version??
-
-```ts
-interface VersionedDiff {
-  version: number;
-  diff: StateDiff;
-}
-```
-
-**??????** � ?????????
-
-```ts
-interface SyncPeer {
-  readonly id: string;
-  send(message: SyncMessage): void;
-}
-```
-
-??????? `syncer.handleInboundMessage(message, remotePeerId)`?  
-`SyncMessage` ?? `diff` | `full-sync-request` | `full-sync` ?????
-
----
-
-## OCC Versioning
-
-OpenLess ??**???????Optimistic Concurrency Control?**?
-
-- ?? `applyDiff` ? `version` ????
-- ???? version ??????????????
-- ???? ? ??????? ? ?? `resetState` ??
-
-```
-v0 ??diff??? v1 ??diff??? v2 ??diff??? v3
-         ?                    ?
-    ?????            ???? v0 ?? v2 ? ????
-```
-
-`mutation` ?? `version` ???????????? `StateStore` ???
-
----
-
-## Multi-node Demo
-
-`demo/multi-node-demo.ts` ?????????`NODE_A` / `NODE_B` / `NODE_C`?????????????????
-
-**???**
-
-1. `NODE_A` ?? `applyTransition({ counter: 1 })` ? `publishDiff`
-2. `NODE_B`?`NODE_C` ? mesh ????
-3. ?? `NODE_C` ???? ? ?? `sync:request` / `sync:complete`
-4. ?? `FINAL STATES` ? version / data ?????
-
----
-
-## ????
-
-**?????** Node.js 18+?npm
+- `applyLocal` → version +1, peer convergence
+- Inbound sequenced diff / gap → full-sync convergence
+- Duplicate inbound idempotency
+- Recovery rejects illegal inbound diff
+- Invalid full-sync rejected
+- Two-node convergence (applyLocal, gap, duplicate, full-sync)
 
 ```bash
-# ????
-npm install
-
-# ???????? + recovery ??
-npx ts-node demo/relay-demo.ts
-
-# Delta ???????
-npx ts-node demo/delta-sync-demo.ts
-
-# ????????????
-npx ts-node demo/multi-node-demo.ts
+npm test
 ```
 
 ---
 
-## ????
+## Quick start
 
-| ?? | ?? |
-|------|------|
-| ??? | ? `StateStore` ??? DB snapshot |
-| ??? | ?? `SyncPeer`?Redis Pub/Sub?WebSocket?NATS?Kafka? |
-| ?? | `TransitionEngine.addRule(...)` ?????? |
-| ?? | ????? `zod`??? `applyTransition` ??? schema ?? |
+**Requirements:** Node.js 18+, npm
+
+```bash
+npm install
+npm test
+
+npx ts-node demo/relay-demo.ts          # recovery rules (no sync)
+npm run demo:delta-sync                   # two-node delta + gap
+npm run demo:multi-node                   # three-node mesh
+```
+
+---
+
+## Repository layout
+
+```text
+openless/
+├── index.ts              # public exports
+├── core/
+│   ├── openless-node.ts  # runtime entry
+│   ├── delta-syncer.ts   # sync protocol
+│   ├── transition-engine.ts
+│   ├── state-store.ts
+│   └── event-bus.ts
+├── test/                 # runtime invariant tests
+├── demo/                 # examples (not stable API)
+├── schemas/              # placeholder (Phase 2+)
+└── agents/               # empty (Phase 5+)
+```
+
+---
+
+## Phase 1.5 validation
+
+Minimal real usage (shared todo, `OpenLessNode` only):
+
+```bash
+npm run example:shared-todo
+```
+
+Findings: `PHASE_1.5_VALIDATION.md` (API friction, events, schema — record only, no runtime refactor).
+
+---
+
+## Roadmap (post–Phase 1)
+
+| Item | Phase |
+|------|-------|
+| Persistence / WAL | 2 |
+| Real `SyncPeer` transport | 3 |
+| Daemon / process runtime | 4 |
+| Agent layer | 5 |
+| Zod schemas on `applyTransition` | 2+ |
+
+Details: `ARCHITECTURE.md`, `NEXT_STEPS.md`, `PROJECT_STATE.md`.
 
 ---
 

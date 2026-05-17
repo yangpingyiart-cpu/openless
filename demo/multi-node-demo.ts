@@ -1,36 +1,27 @@
 import {
-  DeltaSyncer,
   DiffBroadcastPayload,
+  DiffReceivedPayload,
   EVENT_DIFF_BROADCAST,
+  EVENT_DIFF_RECEIVED,
   EVENT_SYNC_COMPLETE,
   EVENT_SYNC_REQUEST,
   InMemorySyncHub,
   SyncCompletePayload,
   SyncRequestPayload,
-  SyncMessage,
   VersionedDiff,
 } from "../core/delta-syncer";
-import { EventBus } from "../core/event-bus";
+import { OpenLessNode } from "../core/openless-node";
 import { GlobalState, StateDiff, StateStore } from "../core/state-store";
 import {
   EVENT_ERROR_TRANSITION,
   EVENT_STATE_UPDATE,
   StateUpdatePayload,
-  TransitionEngine,
   TransitionErrorPayload,
 } from "../core/transition-engine";
 
 const NODE_A = "NODE_A";
 const NODE_B = "NODE_B";
 const NODE_C = "NODE_C";
-
-interface OpenLessNode {
-  readonly label: string;
-  readonly store: StateStore;
-  readonly bus: EventBus;
-  readonly engine: TransitionEngine;
-  readonly syncer: DeltaSyncer;
-}
 
 function formatState(state: GlobalState): string {
   return `v${state.version} status=${state.status} data=${JSON.stringify(state.data)}`;
@@ -44,15 +35,6 @@ function logNodeState(label: string, store: StateStore): void {
   console.log(`  ${label}: ${formatState(store.getState())}`);
 }
 
-function applyAndPublish(node: OpenLessNode, diff: StateDiff): boolean {
-  const accepted = node.engine.applyTransition(diff);
-  if (!accepted) {
-    return false;
-  }
-  node.syncer.publishDiff(diff);
-  return true;
-}
-
 function logSynced(label: string, store: StateStore, fromPeerId: string): void {
   const state = store.getState();
   console.log(`
@@ -64,36 +46,12 @@ from: ${fromPeerId}
 `);
 }
 
-function wireEngineInboundSync(node: OpenLessNode): void {
-  const syncer = node.syncer;
-  const original = syncer.handleInboundMessage.bind(syncer);
-
-  syncer.handleInboundMessage = (message: SyncMessage, fromPeerId: string) => {
-    if (message.type !== "diff") {
-      original(message, fromPeerId);
-      return;
-    }
-
-    const versioned = message.payload;
-    const local = node.store.getState();
-
-    if (versioned.version === local.version + 1) {
-      const accepted = node.engine.applyTransition(versioned.diff);
-      if (accepted) {
-        logSynced(node.label, node.store, fromPeerId);
-      }
-      return;
-    }
-
-    original(message, fromPeerId);
-  };
-}
-
 function createNode(label: string): OpenLessNode {
-  const bus = new EventBus();
-  const store = new StateStore({ status: "active" });
-  const engine = new TransitionEngine(store, bus);
-  const syncer = new DeltaSyncer(label, store, bus);
+  const node = new OpenLessNode({
+    nodeId: label,
+    initialState: { status: "active" },
+  });
+  const { bus, store } = node;
 
   bus.subscribe<DiffBroadcastPayload>(EVENT_DIFF_BROADCAST, (p) => {
     if (p.nodeId !== label) {
@@ -105,6 +63,15 @@ function createNode(label: string): OpenLessNode {
   bus.subscribe<TransitionErrorPayload>(EVENT_ERROR_TRANSITION, (p) => {
     console.log(`[${label}] error:transition rule=${p.rule ?? "validation"} reason=${p.reason}`);
   });
+
+  if (label === NODE_B || label === NODE_C) {
+    bus.subscribe<DiffReceivedPayload>(EVENT_DIFF_RECEIVED, (p) => {
+      if (p.nodeId !== label || !p.applied) {
+        return;
+      }
+      logSynced(label, store, p.fromPeerId);
+    });
+  }
 
   if (label === NODE_A) {
     bus.subscribe<StateUpdatePayload>(EVENT_STATE_UPDATE, () => {
@@ -160,7 +127,7 @@ via: sync:complete from ${p.fromPeerId}
     });
   }
 
-  return { label, store, bus, engine, syncer };
+  return node;
 }
 
 function printFinalStates(nodes: OpenLessNode[]): void {
@@ -169,7 +136,7 @@ function printFinalStates(nodes: OpenLessNode[]): void {
   const states = nodes.map((n) => n.store.getState());
 
   for (const node of nodes) {
-    console.log(`${node.label}: ${formatState(node.store.getState())}`);
+    console.log(`${node.nodeId}: ${formatState(node.store.getState())}`);
   }
 
   const versionsMatch = states.every((s) => s.version === states[0].version);
@@ -189,7 +156,7 @@ function simulateGapReceive(
   versioned: VersionedDiff,
   fromPeerId: string,
 ): void {
-  node.syncer.receiveDiff(versioned, fromPeerId);
+  node.handleInbound({ type: "diff", payload: versioned }, fromPeerId);
 }
 
 function main(): void {
@@ -200,23 +167,20 @@ function main(): void {
   const nodeB = createNode(NODE_B);
   const nodeC = createNode(NODE_C);
 
-  wireEngineInboundSync(nodeB);
-  wireEngineInboundSync(nodeC);
-
-  hub.mesh([nodeA.syncer, nodeB.syncer, nodeC.syncer]);
+  hub.mesh([nodeA, nodeB, nodeC]);
 
   console.log("mesh: NODE_A <-> NODE_B <-> NODE_C (full mesh)");
   console.log("relay path: NODE_A -> NODE_B -> NODE_C\n");
 
-  logBanner("STEP 1 - NODE_A applyTransition + publish");
+  logBanner("STEP 1 - NODE_A applyLocal + publish");
 
   const diff1: StateDiff = {
     mutation: { data: { counter: 1 } },
     timestamp: Date.now(),
   };
 
-  const ok1 = applyAndPublish(nodeA, diff1);
-  console.log(`NODE_A applyTransition: ${ok1 ? "accepted" : "rejected"}`);
+  const ok1 = nodeA.applyLocal(diff1);
+  console.log(`NODE_A applyLocal: ${ok1 ? "accepted" : "rejected"}`);
   if (ok1) {
     console.log("relay: NODE_A -> NODE_B -> NODE_C");
   }
