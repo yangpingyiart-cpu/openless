@@ -151,13 +151,19 @@ openless/
 
 ## Phase 1.5 validation
 
-Minimal real usage (shared todo, `OpenLessNode` only):
+Minimal real usage (`OpenLessNode` only):
 
 ```bash
-npm run example:shared-todo
+npm run example:shared-todo      # shared todo board
+npm run example:ai-workspace     # replicated AI workspace (planner / coder / ui)
 ```
 
-Findings: `PHASE_1.5_VALIDATION.md` (API friction, events, schema — record only, no runtime refactor).
+Findings:
+
+- **`PHASE_1_5_VALIDATION_SUMMARY.md`** — stage conclusion (read this first)
+- `PHASE_1_5_USAGE_DIARY.md` — living friction log
+- `PHASE_1_5_AI_WORKSPACE_VALIDATION.md` — AI workspace detail
+- `PHASE_1.5_VALIDATION.md` — legacy shared-todo notes
 
 ---
 

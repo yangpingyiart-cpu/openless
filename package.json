@@ -9,7 +9,8 @@
     "demo:relay": "ts-node demo/relay-demo.ts",
     "demo:delta-sync": "ts-node demo/delta-sync-demo.ts",
     "demo:multi-node": "ts-node demo/multi-node-demo.ts",
-    "example:shared-todo": "ts-node examples/shared-todo/run.ts"
+    "example:shared-todo": "ts-node examples/shared-todo/run.ts",
+    "example:ai-workspace": "ts-node examples/ai-workspace/run.ts"
   },
   "keywords": [],
   "author": "",
