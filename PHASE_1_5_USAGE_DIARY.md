@@ -1,7 +1,7 @@
 # Phase 1.5 — Usage Diary
 
 Runtime friction observed during real usage validation.  
-Sources: `examples/shared-todo/`, `examples/ai-workspace/`, `npm test` (invariants held throughout).
+Sources: `examples/shared-todo/`, `examples/ai-workspace/`, `examples/chat-thread/`, `npm test` (invariants held throughout).
 
 **Status:** record only — no fixes applied in Phase 1.5.
 
@@ -44,8 +44,74 @@ Sources: `examples/shared-todo/`, `examples/ai-workspace/`, `npm test` (invarian
 | O-31 | 2026-05-17 | shared-todo V6 | Same `todoDiff({ metadata })` twice | v increments twice; duplicate returns true | No | Yes (O-08, O-23) |
 | O-32 | 2026-05-17 | shared-todo V2 | userB edit/assign; userA complete different ids | No conflict; checksum match | No | Once (positive) |
 | O-33 | 2026-05-17 | shared-todo V1–V6 | Top-level `todos`/`users`/`presence`/`metadata` | Shallow merge OK when keys partitioned by operation | No | Once (positive) |
+| O-34 | 2026-05-17 | chat-thread V1 | windowA/B sequential append + presence | Converged v5; 2 messages; checksum match | No | Once (positive) |
+| O-35 | 2026-05-17 | chat-thread V2 | Observer `message:appended` bridge | 2 derived events; snapshot=2; `nodeId=observer` not writer | No | Yes (O-16, O-28) |
+| O-36 | 2026-05-17 | chat-thread V3 | Stale read; both append to `messages` | LWW: `"Concurrent B (stale)"` wins id=3; A's concurrent msg lost | No | Yes (O-22, O-29) |
+| O-37 | 2026-05-17 | chat-thread V3 | Chat append model | Whole `messages` map per append; `metadata.nextMessageId` races with stale read | No | Yes (O-04) |
+| O-38 | 2026-05-17 | chat-thread V4 | windowB `resetState(v0)`; windowA append | Full-sync; v8; 4 messages converged; windowB `sync:complete=1` | No | Yes (O-17, O-30) |
+| O-39 | 2026-05-17 | chat-thread V4 | Observer during recovery | `sync:complete=0`; 1 `state:update`-derived event only | No | Yes (O-18) |
+| O-40 | 2026-05-17 | chat-thread V5 | Duplicate metadata `applyLocal` twice | v8→v10; second apply returns true | No | Yes (O-08, O-23, O-31) |
+| O-41 | 2026-05-17 | chat-thread | Lag simulation | `store.resetState` — not on `OpenLessNode` | No | Yes (O-06) |
+| O-42 | 2026-05-17 | chat-thread V1–V5 | `presence` top-level key | Typing updates separate from `messages`; no cross-key conflict in V1 | No | Once (positive) |
+| O-43 | 2026-05-17 | chat-thread LR1 | 40 alternating appends | 40 msgs @ v50; gap=0; checksum YES | No | Once (positive) |
+| O-44 | 2026-05-17 | chat-thread LR2 | 12× stale concurrent pairs | 22 msgs lost; gap 0→12; store=52 vs 64 logical sends | No | Yes (O-36) |
+| O-45 | 2026-05-17 | chat-thread LR3 | 2 observer-only nodes, 20 writes | Both observers derive events; `nodeId=observer*`; no writes | No | Yes (O-35) |
+| O-46 | 2026-05-17 | chat-thread LR4 | 6× lag/recovery loops | All converge; observer `sync:complete=0` every loop | No | Yes (O-39) |
+| O-47 | 2026-05-17 | chat-thread LR5 | 8× duplicate metadata replay | +16 version bumps; message count unchanged | No | Yes (O-40) |
+| O-48 | 2026-05-17 | chat-thread LR6 | 10× concurrent burst loops | +10 more stale losses; gap 12→22 | No | Yes (O-44) |
+| O-49 | 2026-05-17 | chat-thread long-run | Send-gap trajectory | gap grows monotonically after LR2; never shrinks | No | **Accumulating** |
+| O-50 | 2026-05-17 | chat-thread long-run | Version vs messages | v146 for 98 messages — version feels like “activity” not “messages” | No | **Accumulating** |
+| O-51 | 2026-05-17 | chat-thread long-run | 11 convergence checks | 0 failures — correctness stable while confusion grows | No | Once (positive) |
+| O-52 | 2026-05-17 | chat-thread long-run | `lag_reset_store` hits | 12 diary hits; API awkwardness does not compound (learn once) | No | **One-shot** |
+| O-53 | 2026-05-18 | Phase 1.6 stabilization | `npm test` + law-probes + chat-thread-long re-run | 7/7 tests; 7/7 probes protocol-valid; long-run totals unchanged (120 sends, 98 store, gap 22, v146, 0 convergence failures) | No | Yes (O-51) |
+| O-54 | 2026-05-18 | docs authority check | SPEC/SEMANTICS vs `docs/runtime/*` vs diary | No diary IDs in normative docs; README “Phase 2 consolidation” label tightened to “runtime contract” | No | Once |
+| O-55 | 2026-05-18 | Phase 1.6 re-validation #2 | Same command triad as O-53 | Identical long-run fingerprint (120/98/gap22/v146/0 failures); cognition classes unchanged | No | Yes (O-53) |
+| O-56 | 2026-05-18 | law admission discipline | LAW-006 → OBS-001; failure modes → 3 families | Prevents law ossification; runtime laws frozen at 5 | No | Once |
 
-**Blocker definition used here:** prevents convergence, breaks OCC invariants, or makes `OpenLessNode`-only integration impossible. None of O-01–O-33 are blockers under this definition.
+**Blocker definition used here:** prevents convergence, breaks OCC invariants, or makes `OpenLessNode`-only integration impossible. None of O-01–O-56 are blockers under this definition.
+
+---
+
+## Phase 1.6 Stabilization Window (2026-05-18)
+
+**Scope:** observation + documentation verification only — no `core/*` changes, no new infra.
+
+### Documentation authority graph (verified)
+
+| Layer | Files | Normative? |
+|-------|-------|------------|
+| Contract | `SPEC.md`, `SEMANTICS.md`, `NON_GOALS.md` | Yes |
+| Positioning | `POSITIONING.md` | Yes (fit / non-fit) |
+| Runtime laws | `docs/runtime/RUNTIME_LAWS.md`, `GUARANTEE_MATRIX.md`, `SEMANTIC_FAILURE_MODES.md` | Descriptive (Phase 1.6) |
+| Planning | `docs/phase2-backlog.md`, `ERGONOMICS_BACKLOG.md` | No — not commitments |
+| Observation | This diary, `PHASE_1_5_*_VALIDATION.md` | No — must not leak into SPEC |
+
+**Findings:** No accidental guarantees found in SPEC/SEMANTICS beyond validated G-1–G-8. No O-xx / LR-xx IDs in normative contract. Roadmap table in README remains separate from contract section. **Clarification only:** README contract heading renamed; `docs/runtime-positioning.md` points to root `POSITIONING.md` as authority.
+
+### Re-validation commands (2026-05-18)
+
+```bash
+npm test                    # 7/7 pass
+npm run law-probes          # 001–007 protocol-valid
+npm run example:chat-thread-long   # gap 0→22, failures 0
+```
+
+**Outcome:** Patterns stable across sessions — send-gap pattern recorded as OBS-001 (admission withheld; see `RUNTIME_LAWS.md`).
+
+**Session #2 (same day):** Re-run triad — fingerprint unchanged. `SEMANTIC_FAILURE_MODES.md` gained explicit A/B classification key; `docs/non-goals.md` authority pointer added.
+
+**Session #3 — law admission discipline:** LAW-006 demoted to OBS-001; laws frozen at 001–005. Failure modes compressed to 3 cognition families. No LAW-007.
+
+### Stable cognition failures (cross-session — families, not new laws)
+
+| Family | Frictions | Admitted law |
+|--------|-----------|--------------|
+| Expectation mismatch | `overwrite_lww`, `full_map_rewrite`, `sent_vs_store_gap` | 001 (+ OBS-001 metric) |
+| Metric confusion | version/message drift, noop replay | 002, 003 |
+| Visibility bounded | `recovery_visibility`, observer attribution | 004, 005 |
+| ONE_SHOT (diary only) | `lag_reset_store`, event-bridge setup | — |
+
+**Admission rule:** repeating friction → diary or cognition family first; law only if `RUNTIME_LAWS.md` criteria all pass.
 
 ---
 
@@ -89,6 +155,81 @@ Sources: `examples/shared-todo/`, `examples/ai-workspace/`, `npm test` (invarian
 
 ---
 
+## Chat Thread Validation (2026-05-17)
+
+**Script:** `examples/chat-thread/run.ts` (`npm run example:chat-thread`)  
+**Stack:** `thread-model` / `chat-client` / `chat-events` → `OpenLessNode` only
+
+### Run evidence
+
+| Step | Result |
+|------|--------|
+| V1 | 3 nodes; sequential messages 1–2; presence update; checksum YES @ v5 |
+| V2 | Observer: 2× `message:appended`, snapshot=2; no writes |
+| V3 | Concurrent stale append → id=3 is B only; A's `"Concurrent A"` lost; converged @ v7 |
+| V4 | windowB `resetState(v0)` → windowA append → full-sync; 4 msgs @ v8 |
+| V5 | Duplicate metadata diff → v8→v10 |
+
+### Friction log (do not fix now)
+
+| Observation | Status | Evidence |
+|-------------|--------|----------|
+| **overwrite cognition** | **Confirmed** | V3: whole-map LWW drops concurrent message A |
+| **ordering cognition** | **Confirmed** | V5: version +2 on noop metadata replay |
+| **observer semantics** | **Confirmed** | V2: derived events tagged `observer`; author in payload |
+| **replay readability** | **Confirmed** | V4: lagged windowB gets `sync:complete`; observer does not |
+| **semantic collapse** | **Confirmed** | Bridge on `state:update` only |
+| **applyLocal ergonomics** | **Confirmed** | Full `messages` blob per append; boolean return |
+| **recovery UX** | **Confirmed** | V4 converges; lag via `resetState` |
+| **idempotency** | **Confirmed** | V5 duplicate metadata diff advances version |
+| **chat-specific** | **Confirmed** | Append races on `messages` + `metadata.nextMessageId` — not safe for true multi-writer chat without app partition or CRDT (out of scope) |
+| **presence partition** | **Not a problem** | V1: `presence` key separate from `messages` |
+| **convergence failure** | **Not observed** | All steps checksum YES |
+
+### Verdict (chat-thread)
+
+- **Runtime redesign needed?** **No**
+- **Third scenario** confirms O-22/O-16/O-18/O-08 patterns for multi-window chat semantics
+- **Chat domain note:** sequential appends with fresh reads work; concurrent append to shared `messages` map is structurally lossy under shallow LWW — expected, not a runtime bug
+
+---
+
+## Chat Thread Long-Run Validation (2026-05-17)
+
+**Script:** `examples/chat-thread/long-run.ts` (`npm run example:chat-thread-long`)  
+**Tooling:** `validation-diagnostics.ts` (`CognitionLedger`), `simulation-harness.ts`
+
+### Session totals (representative run)
+
+| Metric | Value |
+|--------|-------|
+| Logical sends | 120 |
+| Store messages | 98 |
+| Send gap | 22 (growing) |
+| Stale pairs / msgs lost | 22 / 22 |
+| Noop replay version bumps | 16 |
+| Lag loops / observer sync misses | 6 / 6 |
+| Convergence failures | 0 |
+
+### Cognition pressure classification
+
+| Class | Frictions | Meaning |
+|-------|-----------|---------|
+| **REPEATING** | `overwrite_lww`, `full_map_rewrite`, `recovery_visibility`, `lag_reset_store`, `applylocal_opaque` | Re-encountered every loop; becomes “how OpenLess works” not a surprise |
+| **ACCUMULATING** | `sent_vs_store_gap`, version/message divergence | Developer mental model drifts: “I sent N” ≠ “store has N”; version keeps climbing on noop |
+| **ONE_SHOT** | First `resetState` discovery, boolean `applyLocal`, event-bridge setup | Awkward once; does not worsen with session length |
+
+### Key long-run insight
+
+**Correctness and confusion decouple.** Checksums converge across 4 nodes through 146 versions while send-gap grows 0→22. Long sessions punish chat semantics without ever failing OCC — the pressure is **cognitive**, not **protocol**.
+
+### Verdict (long-run)
+
+- **Runtime redesign?** **No**
+- **Ergonomics pressure intensifies** with session length (gap, version noise) — backlog only
+
+---
+
 ## 2. Friction Categories
 
 ### event semantic collapse
@@ -98,7 +239,7 @@ Sources: `examples/shared-todo/`, `examples/ai-workspace/`, `npm test` (invarian
 | O-02, O-03, O-10, O-16 | `state:update` is the default app hook but bundles local write, inbound replicate, and full-sync. No built-in locality or writer attribution. |
 | O-18 | Recovery signaling (`sync:complete`) is not uniformly visible on all replicas; observers may only see version bumps. |
 
-**Repeat count:** 2 scenarios (todo, ai-workspace). **Structural failure:** no.
+**Repeat count:** 3 scenarios (todo, ai-workspace, chat-thread). **Structural failure:** no.
 
 ---
 
@@ -109,7 +250,7 @@ Sources: `examples/shared-todo/`, `examples/ai-workspace/`, `npm test` (invarian
 | O-01, O-04, O-07, O-26 | Boolean result; manual `StateDiff` construction; full top-level blobs; timestamp required; domain rules live in app wrappers. |
 | O-13 | Public exports allow skipping the façade. |
 
-**Repeat count:** 2 scenarios. **Structural failure:** no.
+**Repeat count:** 3 scenarios. **Structural failure:** no.
 
 ---
 
@@ -120,7 +261,7 @@ Sources: `examples/shared-todo/`, `examples/ai-workspace/`, `npm test` (invarian
 | O-08, O-22, O-23, O-24 | Concurrent or duplicate writes: last top-level key wins; version always advances; no merge conflict event. |
 | O-14 | Mitigation observed: separate top-level keys per writer role — app convention, not runtime guarantee. |
 
-**Repeat count:** 2 scenarios (duplicate idempotency in both). **Structural failure:** no (convergence held).
+**Repeat count:** 3 scenarios (duplicate idempotency in all three). **Structural failure:** no (convergence held).
 
 ---
 
@@ -132,7 +273,7 @@ Sources: `examples/shared-todo/`, `examples/ai-workspace/`, `npm test` (invarian
 | O-19, O-20 | `recovering` rules work when keys are `recovery.*`; illegal domain writes fail closed. |
 | O-21 | Errors are per-node bus; observers on other replicas do not see peer transition failures. |
 
-**Repeat count:** 2 scenarios (todo: gap only; workspace: gap + recovering). **Structural failure:** no.
+**Repeat count:** 3 scenarios (todo, workspace, chat-thread: gap). **Structural failure:** no.
 
 ---
 
@@ -143,7 +284,7 @@ Sources: `examples/shared-todo/`, `examples/ai-workspace/`, `npm test` (invarian
 | O-05, O-15, O-16, O-18, O-21 | Observer pattern viable via `getState()` + derived events; must hand-roll bridge; sync/recovery events uneven across replicas; attribution wrong on derived events. |
 | O-09 | Subscription lifecycle is manual. |
 
-**Repeat count:** 2 scenarios. **Structural failure:** no.
+**Repeat count:** 3 scenarios. **Structural failure:** no.
 
 ---
 
@@ -154,7 +295,7 @@ Sources: `examples/shared-todo/`, `examples/ai-workspace/`, `npm test` (invarian
 | O-04, O-12, O-25 | `data: Record<string, any>`; app parses/coerces; shallow merge; nested updates need whole-map replacement. |
 | O-07 | No zod/runtime schema at boundary (`schemas/` empty). |
 
-**Repeat count:** 2 scenarios. **Structural failure:** no.
+**Repeat count:** 3 scenarios. **Structural failure:** no.
 
 ---
 
@@ -191,7 +332,7 @@ If (1)–(3) are not met → **record**, optionally add ergonomics in Phase 2 (s
 
 | ID | Note |
 |----|------|
-| O-11, O-14, O-15, O-17, O-20, O-27, O-32, O-33 | `OpenLessNode` + `InMemorySyncHub` sufficient for 2–3 node convergence without sync imports. |
+| O-11, O-14, O-15, O-17, O-20, O-27, O-32, O-33, O-34, O-38, O-42, O-43, O-51 | `OpenLessNode` + `InMemorySyncHub` sufficient for 2–4 node convergence without sync imports. |
 
 These are recorded so the diary is not only negative signal.
 
@@ -204,4 +345,10 @@ These are recorded so the diary is not only negative signal.
 | `examples/shared-todo/README.md` | Shared-todo how-to |
 | `PHASE_1.5_VALIDATION.md` | Shared-todo (legacy notes) |
 | `PHASE_1_5_AI_WORKSPACE_VALIDATION.md` | AI workspace matrix |
+| `PHASE_1_5_CHAT_THREAD_VALIDATION.md` | Chat thread matrix |
+| `PHASE_1_5_CHAT_THREAD_LONG_VALIDATION.md` | Long-run cognition report |
+| `docs/runtime/RUNTIME_LAWS.md` | Phase 1.6 extracted laws |
+| `docs/runtime/GUARANTEE_MATRIX.md` | Guarantee surfaces |
+| `examples/law-probes/` | Law microscopy probes |
+| `examples/chat-thread/README.md` | Chat-thread how-to |
 | `test/openless-node.test.ts` | Invariant baseline |

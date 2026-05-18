@@ -10,7 +10,17 @@
     "demo:delta-sync": "ts-node demo/delta-sync-demo.ts",
     "demo:multi-node": "ts-node demo/multi-node-demo.ts",
     "example:shared-todo": "ts-node examples/shared-todo/run.ts",
-    "example:ai-workspace": "ts-node examples/ai-workspace/run.ts"
+    "example:ai-workspace": "ts-node examples/ai-workspace/run.ts",
+    "example:chat-thread": "ts-node examples/chat-thread/run.ts",
+    "example:chat-thread-long": "ts-node examples/chat-thread/long-run.ts",
+    "law-probes": "ts-node examples/law-probes/run-all.ts",
+    "law-probe:001": "ts-node examples/law-probes/001-noop-replay/probe.ts",
+    "law-probe:002": "ts-node examples/law-probes/002-stale-overwrite/probe.ts",
+    "law-probe:003": "ts-node examples/law-probes/003-replay-ambiguity/probe.ts",
+    "law-probe:004": "ts-node examples/law-probes/004-observer-recovery/probe.ts",
+    "law-probe:005": "ts-node examples/law-probes/005-version-inflation/probe.ts",
+    "law-probe:006": "ts-node examples/law-probes/006-lag-oscillation/probe.ts",
+    "law-probe:007": "ts-node examples/law-probes/007-semantic-divergence/probe.ts"
   },
   "keywords": [],
   "author": "",

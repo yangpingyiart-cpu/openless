@@ -149,6 +149,30 @@ openless/
 
 ---
 
+## Architecture (runtime contract — normative)
+
+| Doc | Topic |
+|-----|--------|
+| [SPEC.md](SPEC.md) | Runtime boundary, guarantees, intended usage |
+| [SEMANTICS.md](SEMANTICS.md) | Mutation, convergence, observer, recovery |
+| [NON_GOALS.md](NON_GOALS.md) | Explicit exclusions |
+| [ERGONOMICS_BACKLOG.md](ERGONOMICS_BACKLOG.md) | DX pressure only (not a roadmap) |
+| [POSITIONING.md](POSITIONING.md) | Suitable / unsuitable scenarios |
+
+**Phase 1.6 — runtime law extraction** (`docs/runtime/`):
+
+| Doc | Topic |
+|-----|--------|
+| [RUNTIME_LAWS.md](docs/runtime/RUNTIME_LAWS.md) | LAW-001–005 + admission discipline (descriptive) |
+| [SEMANTIC_FAILURE_MODES.md](docs/runtime/SEMANTIC_FAILURE_MODES.md) | Protocol vs human failure |
+| [GUARANTEE_MATRIX.md](docs/runtime/GUARANTEE_MATRIX.md) | Guaranteed / not guaranteed |
+
+Law probes: `npm run law-probes` → `examples/law-probes/`
+
+Supporting: `ARCHITECTURE.md`, `PHASE_1_5_VALIDATION_SUMMARY.md`, `docs/` (planning notes).
+
+---
+
 ## Phase 1.5 validation
 
 Minimal real usage (`OpenLessNode` only):
