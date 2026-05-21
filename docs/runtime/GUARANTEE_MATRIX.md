@@ -4,6 +4,8 @@ Phase 1.6 — explicit **GUARANTEED** vs **NOT GUARANTEED** vs **PARTIALLY GUARA
 
 Most distributed systems under-document what they do **not** promise. OpenLess does the opposite.
 
+**Authority:** Normative contract is [SPEC.md](../../SPEC.md) G-1–G-8. This matrix summarizes what **current validation indicates** — not human continuity perception or observer event completeness.
+
 **Scope:** Phase 1 runtime (`OpenLessNode`, `DeltaSyncer`, `TransitionEngine`, `StateStore`, in-memory hub). Evidence: `npm test`, usage validations, law probes.
 
 ---

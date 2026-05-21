@@ -41,6 +41,7 @@ If any criterion fails → record in **`PHASE_1_5_USAGE_DIARY.md`** or **Runtime
 - **Admitted laws:** LAW-001–LAW-005 (frozen pending structural failure)
 - **Withheld:** observations that only restate cognition on top of 001–005
 - **Next law:** requires explicit admission review against the table above — default answer is **no**
+- **Last pressure test:** 2026-05-21 governance pass — all five laws retained; OBS-001 remains withheld (see `docs/governance/GOVERNANCE_PASS_2026-05-21.md`)
 
 ---
 

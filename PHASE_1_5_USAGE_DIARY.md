@@ -67,8 +67,27 @@ Sources: `examples/shared-todo/`, `examples/ai-workspace/`, `examples/chat-threa
 | O-54 | 2026-05-18 | docs authority check | SPEC/SEMANTICS vs `docs/runtime/*` vs diary | No diary IDs in normative docs; README “Phase 2 consolidation” label tightened to “runtime contract” | No | Once |
 | O-55 | 2026-05-18 | Phase 1.6 re-validation #2 | Same command triad as O-53 | Identical long-run fingerprint (120/98/gap22/v146/0 failures); cognition classes unchanged | No | Yes (O-53) |
 | O-56 | 2026-05-18 | law admission discipline | LAW-006 → OBS-001; failure modes → 3 families | Prevents law ossification; runtime laws frozen at 5 | No | Once |
+| O-57 | 2026-05-21 | quiet window #1 | Full triad: test + 3 examples + law-probes + chat-thread-long | 7/7 tests; 7/7 probes protocol-valid; long-run fingerprint unchanged (120/98/gap22/v146/0 failures) | No | Yes (O-53, O-55) |
+| O-58 | 2026-05-21 | shared-todo re-run | V1–V6 unchanged: stale LWW, observer nodeId, sync:complete on lagged node only | All checksum YES; v13 terminal | No | Yes (O-29–O-31) |
+| O-59 | 2026-05-21 | ai-workspace re-run | V1–V6 unchanged: context LWW, duplicate v+2, UI no sync:complete | All convergence YES; v17 terminal | No | Yes (O-22–O-23) |
+| O-60 | 2026-05-21 | chat-thread re-run | V1–V5 unchanged: 1 concurrent msg lost, observer sync:complete=0 | checksum YES; v10 terminal | No | Yes (O-36, O-39) |
+| O-61 | 2026-05-21 | docs authority re-audit | Grep SPEC/SEMANTICS/docs for inflation phrases | No `preserves intent` / `never loses` / `eventual user`; G-1–G-8 unchanged | No | Yes (O-54) |
+| O-62 | 2026-05-21 | quiet window cycle #2 | test + 3 examples + long-run + law-probes | Fingerprint unchanged (120/98/gap22/v146/0 failures); 7/7 tests; 7/7 probes | No | Yes (O-57) |
+| O-63 | 2026-05-21 | `observe:timing-variance` | 13 TV scenarios across 3 domains | **13/13 runtime converged**; cognition classes unchanged | No | Once |
+| O-64 | 2026-05-21 | timing variance | Extended stale, delayed attach, overwrite burst, partial observer, silence+replay | Overwrite LWW 1-loss/pair stable; delayed attach → partial derived history; recovery invisibility on observer | No | Yes (O-18, O-36) |
+| O-65 | 2026-05-21 | authority tighten | `docs/semantic-model.md` header | "Convergence guarantees" → "current validation indicates"; SPEC authority pointer added | No | Once |
+| O-66 | 2026-05-21 | silence window ×5 | `observe:silence-window` baseline cycles | 5/5 fingerprint `120/98/gap22/v146/0`; 7/7 tests each; law-probes OK | No | Yes (O-62) |
+| O-67 | 2026-05-21 | extended SV ×2 | `observe:silence-validation` (silenceTicks=80, stale=18, obs=35) | 2/2 fingerprint `149/121/gap28/v167/0`; 0 failures; 28/28 stale loss rate | No | Once |
+| O-68 | 2026-05-21 | SV scaling law (diary) | Extended vs baseline params | gap scales with stale volume (22→28); **1 loss/pair invariant**; deterministic not drifting | No | Once |
+| O-69 | 2026-05-21 | authority tighten #2 | `semantic-model.md` observer; `SEMANTICS.md` §5.2 | "Guaranteed" → "current validation indicates" / "validated surfaces" | No | Once |
+| O-70 | 2026-05-21 | governance pass | `npm run governance:pass` | Full pass complete; report `docs/governance/GOVERNANCE_PASS_2026-05-21.md` | No | Once |
+| O-71 | 2026-05-21 | runtime fatigue ×3 | `observe:runtime-fatigue` | 0 failures; lossRate=1.00 each round; Δgap=15/round stable | No | Once |
+| O-72 | 2026-05-21 | horizon silence ×2 | `observe:horizon-silence` | `110/86/gap24/v144/0` identical both runs | No | Once |
+| O-73 | 2026-05-21 | law pressure test | LAW-001–005 criteria | All KEEP; OBS-001 WITHHELD; no demotions | No | Once |
+| O-74 | 2026-05-21 | cognition drift doc | Governance §7 | Five phenomena documented structural; no runtime fixes | No | Once |
+| O-75 | 2026-05-21 | minimality watch | Ergonomics / observer-fix pressure | Recorded; NOT implemented (causality, narration, etc.) | No | Once |
 
-**Blocker definition used here:** prevents convergence, breaks OCC invariants, or makes `OpenLessNode`-only integration impossible. None of O-01–O-56 are blockers under this definition.
+**Blocker definition used here:** prevents convergence, breaks OCC invariants, or makes `OpenLessNode`-only integration impossible. None of O-01–O-75 are blockers under this definition.
 
 ---
 
@@ -112,6 +131,167 @@ npm run example:chat-thread-long   # gap 0→22, failures 0
 | ONE_SHOT (diary only) | `lag_reset_store`, event-bridge setup | — |
 
 **Admission rule:** repeating friction → diary or cognition family first; law only if `RUNTIME_LAWS.md` criteria all pass.
+
+---
+
+## Quiet Stabilization Window (2026-05-21)
+
+**Mode:** runtime naturalist — observe only. No `core/*` changes. No new domains. No law admission.
+
+### Commands run
+
+```bash
+npm test
+npm run example:shared-todo
+npm run example:ai-workspace
+npm run example:chat-thread
+npm run example:chat-thread-long
+npm run law-probes
+```
+
+### Cross-session fingerprint (chat-thread long-run)
+
+| Metric | 2026-05-17 | 2026-05-18 | 2026-05-21 |
+|--------|------------|------------|------------|
+| logical sends | 120 | 120 | 120 |
+| store messages | 98 | 98 | 98 |
+| send-gap | 22 | 22 | 22 |
+| terminal version | 146 | 146 | 146 |
+| convergence failures | 0 | 0 | 0 |
+| law probes protocol-valid | — | 7/7 | 7/7 |
+
+**Interpretation:** Semantic stability persists under silence. Cognition pressure classes unchanged (REPEATING / ACCUMULATING / ONE_SHOT). No new structural failure.
+
+### Validation diary entries (structured)
+
+#### VD-2026-05-21-A — shared-todo stale overwrite
+
+**OBSERVED:** Concurrent edit on `todos["1"].title` → `"Title from userB (stale)"`; silent LWW.
+
+**RUNTIME STATUS:** converged correctly @ v10; replay valid; no protocol divergence.
+
+**OBSERVER EFFECT:** Derived `todo:*` events carry `nodeId=observer`; human may attribute edit to observer replica, not userB.
+
+#### VD-2026-05-21-B — ai-workspace recovery visibility
+
+**OBSERVED:** Coder lag + full-sync; UI sees `state:update` only; `sync:complete` on coder bus only.
+
+**RUNTIME STATUS:** converged correctly @ v10 post-lag; recovering rule rejects illegal `files` write.
+
+**OBSERVER EFFECT:** Recovery invisibility on observer — final state equality without reconstruction narrative.
+
+#### VD-2026-05-21-C — chat-thread long-run send-gap
+
+**OBSERVED:** gap 0→22 monotonic; 22 stale losses; v146 vs 98 messages.
+
+**RUNTIME STATUS:** 11/11 convergence checks pass; checksums match all replicas.
+
+**OBSERVER EFFECT:** Protocol-correct replica hides lost append intents (OBS-001 metric; law admission withheld).
+
+#### VD-2026-05-21-D — law probes observer-invariance check
+
+**OBSERVED:** Probes 001–007 outcomes identical to prior sessions; 002 reports 22/22 stale pair loss rate.
+
+**RUNTIME STATUS:** all probes report protocol-valid convergence.
+
+**OBSERVER EFFECT:** 003/005 — version trail cannot distinguish first apply vs retry; version inflation without semantic delta.
+
+### Authority discipline audit (2026-05-21)
+
+| Check | Result |
+|-------|--------|
+| `preserves intent` / `never loses` / `eventual user consistency` in repo | **Absent** |
+| Diary IDs (O-xx, LR-xx, VD-xx) in `SPEC.md` / `SEMANTICS.md` | **Absent** |
+| `docs/semantic-model.md` "Convergence guarantees" | Lists guaranteed + not-guaranteed pairs — descriptive, not new contract |
+| Law admission freeze | **Holding** — LAW-001–005 only; OBS-001 diary metric |
+
+**Leakage risk (watch only, no edit today):** `docs/semantic-model.md` heading "Convergence guarantees" could be misread as normative if cited without `SPEC.md` pointer. Not escalated — existing authority graph sufficient.
+
+### Law admission freeze status
+
+| Candidate | Cross-session | Cross-domain | Impl-independent | Observer-invariant | Admit? |
+|-----------|---------------|--------------|------------------|-------------------|--------|
+| send-gap (OBS-001) | Yes | Yes (chat primary) | Yes | **No** — depends on counting logical sends | **Withheld** |
+| overwrite LWW | Yes | Yes | Yes | Partial — human expects merge | **Already LAW-001** |
+| recovery visibility | Yes | Yes | Yes | **No** — observer-bound | **Already LAW-005** |
+
+**No new laws proposed.**
+
+### Cycle #2 — timing variance (2026-05-21)
+
+**Script:** `npm run observe:timing-variance` (examples only; no `core/*` changes)
+
+| Domain | Scenarios | Runtime | Observer (not protocol) |
+|--------|-----------|---------|-------------------------|
+| chat-thread | TV1–TV5 | 5/5 converged | extended stale still 1-loss/pair; delayed attach derived=0; silence replay +3v |
+| shared-todo | TV2–TV5 | 4/4 converged | delayed attach partial history; 5× overwrite → `B-stale-4`; replay +2v |
+| ai-workspace | TV2–TV5 | 4/4 converged | delayed attach ui events=1; 5× context → `coder-stale-4`; silence replay +2v |
+
+**Conclusion:** Cognition drift patterns are **timing-invariant** under in-process mesh variance. Confusion remains observer-bound; **not** classified as protocol instability.
+
+**Law freeze (reaffirmed):** send-gap, replay ambiguity, overwrite disappearance, recovery invisibility — validation only.
+
+---
+
+## Autonomous Silence-Validation Window (2026-05-21) — COMPLETE
+
+**Orchestrator:** `npm run observe:silence-window` (5 baseline cycles + 2 extended SV + timing-variance)
+
+### Runtime semantic identity (stable)
+
+| Profile | Runs | Fingerprint | Convergence failures | Stale loss rate |
+|---------|------|-------------|----------------------|-----------------|
+| Baseline long-run | 5 | `120/98/gap22/v146/0` | 0 | 22/22 pairs |
+| Extended SV | 2 | `149/121/gap28/v167/0` | 0 | 28/28 pairs |
+
+**New stability signal:** Extended parameters scale **deterministically** (not stochastically). Send-gap grows with stale-loop count (structural OBS-001), but **1 logical loss per stale pair** holds across baseline and extended profiles. No protocol divergence under prolonged silence or timing variance.
+
+### Observer continuity (unchanged — validation only)
+
+| Phenomenon | Under extended silence | Protocol? |
+|------------|------------------------|-----------|
+| send-gap growth | 0→28 monotonic | No — metric on logical sends |
+| recovery invisibility | 8/8 lag loops observer sync miss | No — event locality |
+| delayed attach | derived=0 after 12 pre-writes | No — chronology perception |
+| replay after silence | +6v, 0 semantic delta | No — version inflation |
+| overwrite LWW | 28/28 pairs lose exactly 1 | No — expected LWW |
+
+**Discipline:** Runtime converged + checksums valid throughout → **do not** classify as protocol instability.
+
+### Law admission freeze (held)
+
+No promotion. OBS-001 remains observer-dependent (send counting). Structural friction **not** runtime-destabilizing.
+
+### Authority audit (window close)
+
+| File | Adjustment |
+|------|------------|
+| `docs/semantic-model.md` | Observer section: "Guaranteed" → "current validation indicates" |
+| `SEMANTICS.md` §5.2 | Heading clarifies validated surfaces ≠ continuity |
+| Grep | No `preserves intent` / `never loses` / `eventual user` |
+
+**Mission outcome:** Semantic stability under silence — **confirmed**. Capability growth — **not pursued**.
+
+---
+
+## Long-Horizon Runtime Governance Pass (2026-05-21) — COMPLETE
+
+**Report:** [docs/governance/GOVERNANCE_PASS_2026-05-21.md](docs/governance/GOVERNANCE_PASS_2026-05-21.md)  
+**Orchestrator:** `npm run governance:pass`
+
+### Outcome summary
+
+| Objective | Result |
+|-----------|--------|
+| Runtime fatigue | 3 rounds, 0 convergence failures, loss rate 1.00/pair invariant |
+| Silence horizon | `110/86/gap24/v144/0` ×2 identical |
+| Governance audit | Clean; no inflation phrases; authority graph intact |
+| Law admission | 5 KEEP, OBS-001 WITHHELD, no new laws |
+| Ontology expansion | **None** |
+
+**Stability signal:** Fatigue and horizon extend semantic pressure without protocol erosion — confusion compounds as **metrics**, not **divergence**.
+
+**Governance integrity:** **PASS**. No redesign pressure indicated.
 
 ---
 
@@ -350,5 +530,11 @@ These are recorded so the diary is not only negative signal.
 | `docs/runtime/RUNTIME_LAWS.md` | Phase 1.6 extracted laws |
 | `docs/runtime/GUARANTEE_MATRIX.md` | Guarantee surfaces |
 | `examples/law-probes/` | Law microscopy probes |
+| `examples/quiet-observation/timing-variance.ts` | Timing-variance observation (`npm run observe:timing-variance`) |
+| `examples/quiet-observation/silence-validation.ts` | Extended silence profile (`npm run observe:silence-validation`) |
+| `examples/quiet-observation/run-silence-window.ts` | Multi-cycle autonomous window (`npm run observe:silence-window`) |
+| `examples/chat-thread/runtime-fatigue.ts` | Fatigue simulation (`npm run observe:runtime-fatigue`) |
+| `examples/quiet-observation/horizon-silence.ts` | Horizon silence (`npm run observe:horizon-silence`) |
+| `docs/governance/GOVERNANCE_PASS_2026-05-21.md` | Long-horizon governance pass report |
 | `examples/chat-thread/README.md` | Chat-thread how-to |
 | `test/openless-node.test.ts` | Invariant baseline |

@@ -1,7 +1,7 @@
 # Semantic Model
 
 Formal semantics of **observable behavior** after Phase 1.5 validation.  
-This document defines what applications can rely on; it does not promise future ergonomics.
+**Authority:** normative guarantees live in [SPEC.md](../SPEC.md) and [SEMANTICS.md](../SEMANTICS.md). This file describes what **current validation indicates**; it does not promise future ergonomics or human continuity perception.
 
 ---
 
@@ -35,9 +35,9 @@ This document defines what applications can rely on; it does not promise future 
 
 ---
 
-## Convergence guarantees
+## Convergence (current validation indicates)
 
-**Guaranteed (validated):**
+**Validated under Phase 1 mesh scenarios (see SPEC G-1–G-8):**
 
 | Guarantee | Mechanism |
 |-----------|-----------|
@@ -102,7 +102,7 @@ An **observer** replica:
 - Subscribes to runtime events on **its** `node.bus`
 - Reads via `node.store.getState()`
 
-**Guaranteed:**
+**Current validation indicates (see SPEC convergence; not continuity perception):**
 
 - After convergence, observer snapshot matches writer replicas
 - `state:update` fires for every applied change visible on that replica

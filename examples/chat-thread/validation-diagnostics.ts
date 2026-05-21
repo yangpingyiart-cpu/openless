@@ -106,6 +106,23 @@ export class CognitionLedger {
     if (!ok) this.convergenceFailures += 1;
   }
 
+  /** Read-only session totals for silence-validation fingerprints. */
+  sessionTotals(): {
+    logicalSends: number;
+    stalePairs: number;
+    messagesLostToStale: number;
+    noopReplayBumps: number;
+    convergenceFailures: number;
+  } {
+    return {
+      logicalSends: this.logicalSends,
+      stalePairs: this.stalePairs,
+      messagesLostToStale: this.messagesLostToStale,
+      noopReplayBumps: this.noopReplayBumps,
+      convergenceFailures: this.convergenceFailures,
+    };
+  }
+
   snapshotPhase(
     phase: string,
     storeMessages: number,

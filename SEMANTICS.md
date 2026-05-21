@@ -126,7 +126,7 @@ After operations complete on a connected mesh:
 
 An **observer** is a replica that **MUST NOT** call `applyLocal`. It **MAY** subscribe to `node.bus` and **MUST** read via `node.store.getState()`.
 
-### 5.2 Guaranteed for observers
+### 5.2 Observer replicas — validated surfaces (not continuity guarantees)
 
 - Final state **MUST** match writer replicas after convergence (validated)  
 - `state:update` **MUST** fire on that replica for each change applied there  
